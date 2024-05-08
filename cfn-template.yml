@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  PojectName:
+    Type: String
+    Default: "MyProject"
+    Description: Name of the project
+  EnvType:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, test]
+    Description: Environment type
+
+Conditions:
+  CreateProdResources: !Equals [ !Ref EnvType, prod]
+  CreateDevResources: !Equals [ !Ref EnvType, dev]
+
+Resources:
+  CodeBuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub "${PojectName}-CodeBuildRole-${EnvType}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: "Allow"
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service: codebuild.amazonaws.com
+  CodeBuild:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: !Sub "${PojectName}-CodeBuild-${EnvType}"
+      Artifacts:
+        Type: NO_ARTIFACTS 
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: "aws/codebuild/standard:4.0"
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: "ENV_TYPE"
+            Value: !Ref EnvType
+            Type: PLAINTEXT
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: GITHUB
+        Auth:
+          Type: OAUTH
+        Location: "git@github.com:park-bitset/cicd-source.git"
+        ReportBuildStatus: true
+        BuildSpec: buildspec.yml
+
+
+  
