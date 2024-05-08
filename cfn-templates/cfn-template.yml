@@ -1,0 +1,90 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: "MyProject"
+    Description: Name of the project
+  EnvType:
+    Type: String
+    Default: dev
+    AllowedValues: [prod, dev, test]
+    Description: Environment type
+
+Conditions:
+  CreateProdResources: !Equals [ !Ref EnvType, prod]
+  CreateDevResources: !Equals [ !Ref EnvType, dev]
+
+Resources:
+  CodeBuildRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: !Sub "${ProjectName}-CodeBuildRole-${EnvType}"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: "Allow"
+            Action: 'sts:AssumeRole'
+            Principal:
+              Service: codebuild.amazonaws.com
+      Policies:
+        - PolicyName: !Sub "${ProjectName}-CodeBuildRolePolicy-${EnvType}"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "codebuild:*"
+                  - "codecommit:GetBranch"
+                  - "codecommit:GetCommit"
+                  - "codecommit:GetRepository"
+                  - "codecommit:ListBranches"
+                  - "codecommit:ListRepositories"
+                  - "cloudwatch:GetMetricStatistics"
+                  - "ec2:DescribeVpcs"
+                  - "ec2:DescribeSecurityGroups"
+                  - "ec2:DescribeSubnets"
+                  - "ecr:DescribeRepositories"
+                  - "ecr:ListImages"
+                  - "elasticfilesystem:DescribeFileSystems"
+                  - "events:DeleteRule"
+                  - "events:DescribeRule"
+                  - "events:DisableRule"
+                  - "events:EnableRule"
+                  - "events:ListTargetsByRule"
+                  - "events:ListRuleNamesByTarget"
+                  - "events:PutRule"
+                  - "events:PutTargets"
+                  - "events:RemoveTargets"
+                  - "logs:GetLogEvents"
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "s3:GetBucketLocation"
+                  - "s3:ListAllMyBuckets"
+                Resource: "*"
+  CodeBuild:
+    Type: 'AWS::CodeBuild::Project'
+    Properties:
+      Name: !Sub "${ProjectName}-CodeBuild-${EnvType}"
+      Artifacts:
+        Type: NO_ARTIFACTS 
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: "aws/codebuild/standard:4.0"
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: "ENV_TYPE"
+            Value: !Ref EnvType
+            Type: PLAINTEXT
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Source:
+        Type: GITHUB
+        Auth:
+          Type: OAUTH
+        Location: "https://github.com/park-bitset/cicd-source.git"
+        ReportBuildStatus: true
+        BuildSpec: buildspec.yml
+
+
+  
